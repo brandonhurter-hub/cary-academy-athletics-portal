@@ -1,0 +1,93 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        getUserRole() == 'admin' || 
+        request.auth.token.email == 'bhurter24@gmail.com'
+      );
+    }
+
+    function isCoach() {
+      return isEmailVerified() && getUserRole() == 'coach';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation helper for Games
+    function isValidGame(data) {
+      return data.keys().hasAll(['id', 'date', 'time', 'opponent', 'location', 'gameType', 'sport', 'gender', 'season', 'level']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.date is string && data.date.size() <= 20 &&
+             data.time is string && data.time.size() <= 20 &&
+             data.opponent is string && data.opponent.size() <= 100 &&
+             data.location is string && data.location.size() <= 100 &&
+             data.gameType in ['Home', 'Away', 'Neutral'] &&
+             data.sport is string && data.sport.size() <= 64 &&
+             data.gender in ['Mens', 'Womens', 'Co-Ed'] &&
+             data.season in ['Fall', 'Winter', 'Spring'] &&
+             data.level in ['Varsity', 'JV', 'Middle School', 'MS Blue', 'MS Gold'] &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 2048)) &&
+             (!('field' in data) || (data.field is string && data.field.size() <= 128)) &&
+             (!('earlyReleaseTime' in data) || (data.earlyReleaseTime is string && data.earlyReleaseTime.size() <= 32)) &&
+             (!('busDepartureTime' in data) || (data.busDepartureTime is string && data.busDepartureTime.size() <= 32)) &&
+             (!('result' in data) || (data.result is string && data.result.size() <= 32));
+    }
+
+    match /games/{gameId} {
+      allow read: if true;
+      
+      allow create: if isAdmin() && isValidGame(incoming()) && isValidId(gameId);
+      
+      allow update: if (isAdmin() && isValidGame(incoming())) ||
+                    (isCoach() && isValidGame(incoming()) && 
+                     incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'earlyReleaseTime', 'busDepartureTime', 'field']) &&
+                     // Ensure Coach doesn't change immutable fields
+                     incoming().id == existing().id &&
+                     incoming().date == existing().date &&
+                     incoming().time == existing().time &&
+                     incoming().opponent == existing().opponent &&
+                     incoming().location == existing().location &&
+                     incoming().gameType == existing().gameType &&
+                     incoming().sport == existing().sport &&
+                     incoming().gender == existing().gender &&
+                     incoming().season == existing().season &&
+                     incoming().level == existing().level
+                    );
+      
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}

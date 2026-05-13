@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Game": {
+      "title": "Game",
+      "description": "Represents an athletic competition.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "time": { "type": "string" },
+        "opponent": { "type": "string" },
+        "location": { "type": "string" },
+        "gameType": { "type": "string", "enum": ["Home", "Away", "Neutral"] },
+        "result": { "type": "string" },
+        "sport": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Mens", "Womens", "Co-Ed"] },
+        "season": { "type": "string", "enum": ["Fall", "Winter", "Spring"] },
+        "level": { "type": "string", "enum": ["Varsity", "JV", "Middle School", "MS Blue", "MS Gold"] },
+        "field": { "type": "string" },
+        "earlyReleaseTime": { "type": "string" },
+        "busDepartureTime": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "date", "time", "opponent", "location", "gameType", "sport", "gender", "season", "level"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Represents a user with a specific role.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "coach"] },
+        "displayName": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "The collection of all games."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "The collection of user roles."
+    }
+  }
+}
